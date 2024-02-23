@@ -2,7 +2,10 @@ package com.android.chartdemo
 
 import android.graphics.LinearGradient
 import android.graphics.Shader
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
@@ -10,6 +13,9 @@ import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.util.Random
 
 private const val TAG = "MainActivity"
@@ -20,18 +26,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val lineChart = findViewById<LineChart>(R.id.lineChart)
-
+        lineChart.legend.isEnabled = false // Ẩn ghi chú (legend) của DataSet
+        lineChart.description.isEnabled = false // Ẩn mô tả (description) của biểu đồ
         // Tạo dữ liệu mẫu
         val entries: ArrayList<Entry> = ArrayList()
 
         // Tạo dữ liệu cho trục tung
-        val yAxisValues = floatArrayOf(1f, 2f, 3f, 4f)
+        val yAxisValues = listOf<String>("A", "B", "C", "D")
 
         // Tạo dữ liệu ngẫu nhiên cho biểu đồ
         val random = Random()
         for (i in 0..24) {
-            val randomYValue = yAxisValues[random.nextInt(yAxisValues.size)]
-            entries.add(Entry(i.toFloat(), randomYValue))
+            val randomValue = Random().nextInt(4)
+            entries.add(Entry(i.toFloat(), randomValue.toFloat()))
         }
 
 
@@ -56,25 +63,45 @@ class MainActivity : AppCompatActivity() {
         // Cài đặt trục X (hoành độ)
         val xAxis: XAxis = lineChart.xAxis
         xAxis.position = XAxis.XAxisPosition.BOTTOM
+
         xAxis.setDrawGridLines(false)
         xAxis.granularity = 1f
-        xAxis.labelCount = 24 // Số lượng label trên trục X
+        xAxis.labelCount = 6 // Số lượng label trên trục X
 
-        // Cài đặt trục Y (tung độ)
+
+        // Cấu hình trục Y (tung độ)
         val yAxisLeft: YAxis = lineChart.axisLeft
-        yAxisLeft.axisMinimum = 0f
-        yAxisLeft.axisMaximum = 4f // Giá trị tối đa của trục Y
-        yAxisLeft.setDrawGridLines(true)
+        yAxisLeft.axisMinimum = -1f
+        yAxisLeft.axisMaximum = 5f // Giá trị tối đa của trục Y
+        yAxisLeft.setDrawGridLines(false)
+        yAxisLeft.setDrawAxisLine(false)
 
         val yAxisRight: YAxis = lineChart.axisRight
         yAxisRight.isEnabled = false
 
+// Cài đặt giá trị trục tung
+        val yAxisValueFormatter = IndexAxisValueFormatter(yAxisValues)
+        val yAxis: YAxis = lineChart.axisLeft
+        yAxis.valueFormatter = yAxisValueFormatter
         // Đặt dữ liệu vào biểu đồ
         lineChart.data = lineData
         setupGradient(lineChart)
 
         // Cập nhật lại biểu đồ
         lineChart.invalidate()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val startTimeMillis = System.currentTimeMillis() // Thời điểm bắt đầu ở hiện tại
+            val endTimeMillis = startTimeMillis + 86400000 // Thời điểm kết thúc là 24 giờ sau
+            val numberOfPoints = 1000 // Số lượng điểm trên trục hoành
+
+            val timeList = createTimeList(startTimeMillis, endTimeMillis, numberOfPoints)
+
+            // In danh sách thời gian
+            timeList.forEach {
+                Log.d(TAG, "onCreate: ${it} ")
+            }
+        }
     }
 
 
@@ -105,4 +132,20 @@ class MainActivity : AppCompatActivity() {
 
         }
     }
+
+    fun createTimeList(
+        startTimeMillis: Long, endTimeMillis: Long, numberOfPoints: Int
+    ): List<Long> {
+        val timeList = mutableListOf<Long>()
+        val duration = endTimeMillis - startTimeMillis
+        val interval = duration / numberOfPoints
+        var currentTime = startTimeMillis
+        for (i in 0 until numberOfPoints) {
+            timeList.add(currentTime)
+            currentTime += interval
+        }
+        return timeList
+    }
+
+
 }
