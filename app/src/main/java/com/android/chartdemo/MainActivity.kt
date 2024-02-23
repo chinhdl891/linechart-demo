@@ -1,11 +1,9 @@
 package com.android.chartdemo
 
+import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Shader
-import android.os.Build
 import android.os.Bundle
-import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
@@ -14,8 +12,10 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
-import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
+import com.github.mikephil.charting.formatter.ValueFormatter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.Random
 
 private const val TAG = "MainActivity"
@@ -34,13 +34,19 @@ class MainActivity : AppCompatActivity() {
         // Tạo dữ liệu cho trục tung
         val yAxisValues = listOf<String>("A", "B", "C", "D")
 
-        // Tạo dữ liệu ngẫu nhiên cho biểu đồ
-        val random = Random()
-        for (i in 0..24) {
-            val randomValue = Random().nextInt(4)
-            entries.add(Entry(i.toFloat(), randomValue.toFloat()))
-        }
 
+
+        val startTimeMillis = System.currentTimeMillis() // Thời điểm bắt đầu ở hiện tại
+        val endTimeMillis = startTimeMillis + 86400000 // Thời điểm kết thúc là 24 giờ sau
+        val numberOfPoints = 1000 // Số lượng điểm trên trục hoành
+
+        val timeList = createTimeList(startTimeMillis, endTimeMillis, numberOfPoints)
+
+        // In danh sách thời gian
+        timeList.forEach {
+            val randomValue = Random().nextInt(5)
+            entries.add(Entry(it.toFloat(), randomValue.toFloat()))
+        }
 
         // Tạo dataset cho biểu đồ
         val dataSet = LineDataSet(entries, "DataSet").apply {
@@ -66,7 +72,24 @@ class MainActivity : AppCompatActivity() {
 
         xAxis.setDrawGridLines(false)
         xAxis.granularity = 1f
-        xAxis.labelCount = 6 // Số lượng label trên trục X
+        val minValue = xAxis.axisMinimum.toLong()
+        val maxValue = xAxis.axisMaximum.toLong()
+
+        xAxis.setLabelCount(2, true)
+
+
+        xAxis.valueFormatter = object : ValueFormatter() {
+            private val formatWithAMPM = SimpleDateFormat("hh:mm aa", Locale.getDefault())
+            private val formatWithoutAMPM = SimpleDateFormat("hh:mm", Locale.getDefault())
+
+            override fun getFormattedValue(value: Float): String {
+                val position = value.toLong()
+                return when (position) {
+                    minValue, maxValue -> formatWithAMPM.format(Date(position))
+                    else -> formatWithoutAMPM.format(Date(position))
+                }
+            }
+        }
 
 
         // Cấu hình trục Y (tung độ)
@@ -75,44 +98,67 @@ class MainActivity : AppCompatActivity() {
         yAxisLeft.axisMaximum = 5f // Giá trị tối đa của trục Y
         yAxisLeft.setDrawGridLines(false)
         yAxisLeft.setDrawAxisLine(false)
-
         val yAxisRight: YAxis = lineChart.axisRight
         yAxisRight.isEnabled = false
+
 
 // Cài đặt giá trị trục tung
         val yAxisValueFormatter = IndexAxisValueFormatter(yAxisValues)
         val yAxis: YAxis = lineChart.axisLeft
         yAxis.valueFormatter = yAxisValueFormatter
+
+
+        // Tạo mảng màu cho từng vị trí trên trục tung
+        val labelColors = arrayOf(
+            resources.getColor(android.R.color.holo_red_light),
+            resources.getColor(android.R.color.holo_orange_light),
+            resources.getColor(android.R.color.holo_green_light),
+            resources.getColor(android.R.color.holo_blue_bright)
+        )
+
+// Thiết lập màu sắc mặc định cho trục tung
+        yAxis.textColor = Color.BLACK
+
+// Thiết lập YAxisValueFormatter
+        yAxis.valueFormatter = object : ValueFormatter() {
+            override fun getFormattedValue(value: Float): String {
+                val index = value.toInt() - 1
+                return when {
+                    index >= 0 && index < labelColors.size -> {
+                        yAxis.textColor = labelColors[index] // Thiết lập màu cho nhãn tại vị trí này
+                        "$value" // Trả về nhãn hoặc giá trị của vị trí tùy thuộc vào nhu cầu của bạn
+                    }
+                    else -> ""
+                }
+            }
+        }
+
+
+
+
+
+
         // Đặt dữ liệu vào biểu đồ
         lineChart.data = lineData
         setupGradient(lineChart)
 
+
+
         // Cập nhật lại biểu đồ
         lineChart.invalidate()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val startTimeMillis = System.currentTimeMillis() // Thời điểm bắt đầu ở hiện tại
-            val endTimeMillis = startTimeMillis + 86400000 // Thời điểm kết thúc là 24 giờ sau
-            val numberOfPoints = 1000 // Số lượng điểm trên trục hoành
 
-            val timeList = createTimeList(startTimeMillis, endTimeMillis, numberOfPoints)
-
-            // In danh sách thời gian
-            timeList.forEach {
-                Log.d(TAG, "onCreate: ${it} ")
-            }
-        }
     }
 
 
-    private fun setupGradient(mChart: LineChart) {
-        mChart.viewTreeObserver.addOnGlobalLayoutListener {
-            val height = mChart.height.toFloat()
-            val width = mChart.width.toFloat()
+    private fun setupGradient(lineChart: LineChart) {
+        lineChart.viewTreeObserver.addOnGlobalLayoutListener {
+            val height = lineChart.height.toFloat()
+            val width = lineChart.width.toFloat()
 
             // Toast.makeText(this, "setupGradient() called with height=$height width=$width", Toast.LENGTH_SHORT).show()
 
-            val paint = mChart.renderer.paintRender
+            val paint = lineChart.renderer.paintRender
 
             val colors = intArrayOf(
                 getColor(android.R.color.holo_blue_bright), // Màu xanh nước biển
